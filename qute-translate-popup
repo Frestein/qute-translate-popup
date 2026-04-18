@@ -247,6 +247,9 @@ def main():
     else:
         text = os.getenv("QUTE_SELECTED_TEXT", "")
 
+        if not text or text.isspace():
+            sys.exit("No selected text")
+
         if args.provider == "google":
             translated_text = translate_google(text, args.target_lang)
         elif args.provider == "libretranslate":
