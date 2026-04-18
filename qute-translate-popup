@@ -20,14 +20,15 @@ def js(message):
         "color": "#000000",
         "border": "1px solid #000000",
         "borderRadius": "0",
-        "padding": "10px",
+        "display": "flex",
+        "flexDirection": "column",
         "zIndex": "10000",
         "fontFamily": "Noto Sans, sans-serif",
         "fontSize": "14px",
         "boxSizing": "border-box",
         "overflow": "hidden",
-        "wordWrap": "break-word",
-        "cursor": "move",
+        "cursor": "default",
+        "willChange": "transform",
     }
     styles_js = "\n".join([f"box.style.{k} = '{v}';" for k, v in styles.items()])
 
@@ -36,11 +37,49 @@ def js(message):
         var box = document.createElement('div');
         {styles_js}
 
+        var titleBar = document.createElement('div');
+        titleBar.style.display = 'flex';
+        titleBar.style.justifyContent = 'space-between';
+        titleBar.style.alignItems = 'center';
+        titleBar.style.padding = '6px 10px';
+        titleBar.style.backgroundColor = '#f0f0f0';
+        titleBar.style.borderBottom = '1px solid #ccc';
+        titleBar.style.fontWeight = 'bold';
+        titleBar.style.cursor = 'move';
+        titleBar.style.userSelect = 'none';
+        titleBar.style.flexShrink = '0';
+
+        var titleText = document.createElement('span');
+        titleText.innerText = '📝 Translation';
+        titleText.style.cursor = 'move';
+        titleBar.appendChild(titleText);
+
+        var copyBtn = document.createElement('button');
+        copyBtn.innerText = '📋 Copy';
+        copyBtn.style.padding = '2px 8px';
+        copyBtn.style.fontSize = '12px';
+        copyBtn.style.cursor = 'pointer';
+        copyBtn.style.border = '1px solid #ccc';
+        copyBtn.style.borderRadius = '3px';
+        copyBtn.style.backgroundColor = '#f5f5f5';
+        copyBtn.style.marginLeft = '10px';
+        copyBtn.title = 'Copy translation';
+        titleBar.appendChild(copyBtn);
+
+        box.appendChild(titleBar);
+
         var contentDiv = document.createElement('div');
-        contentDiv.innerText = decodeURIComponent("{message}");
-        contentDiv.style.height = 'calc(100% - 1px)';
+        contentDiv.style.flex = '1';
         contentDiv.style.overflow = 'auto';
-        contentDiv.style.boxSizing = 'border-box';
+        contentDiv.style.padding = '10px';
+        contentDiv.style.userSelect = 'text';
+        contentDiv.style.cursor = 'default';
+
+        var textSpan = document.createElement('div');
+        textSpan.innerText = decodeURIComponent("{message}");
+        textSpan.style.cursor = 'text';
+        textSpan.style.whiteSpace = 'pre-wrap';
+        contentDiv.appendChild(textSpan);
         box.appendChild(contentDiv);
 
         var corners = ['top-left', 'top-right', 'bottom-left', 'bottom-right'];
@@ -71,83 +110,37 @@ def js(message):
         document.body.appendChild(box);
 
         var isDragging = false;
-        var isResizing = false;
-        var currentResizer = null;
-        var startX, startY, startLeft, startTop, startWidth, startHeight;
+        var startX, startY, startTranslateX, startTranslateY;
 
-        box.addEventListener('mousedown', function(e) {{
-            if (Object.values(resizers).includes(e.target)) return;
+        function getTranslate() {{
+            var transform = box.style.transform;
+            if (transform === 'none' || !transform) return {{ x: 0, y: 0 }};
+            var match = transform.match(/translate\\(([-\\d.]+)px, ([-\\d.]+)px\\)/);
+            if (match) return {{ x: parseFloat(match[1]), y: parseFloat(match[2]) }};
+            return {{ x: 0, y: 0 }};
+        }}
+
+        function setTranslate(x, y) {{
+            box.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+        }}
+
+        titleBar.addEventListener('mousedown', function(e) {{
+            if (e.target === copyBtn || copyBtn.contains(e.target)) return;
             isDragging = true;
             startX = e.clientX;
             startY = e.clientY;
-            var rect = box.getBoundingClientRect();
-            startLeft = rect.left;
-            startTop = rect.top;
-            box.style.transform = 'none';
-            box.style.left = startLeft + 'px';
-            box.style.top = startTop + 'px';
-            box.style.right = 'auto';
-            box.style.bottom = 'auto';
+            var translate = getTranslate();
+            startTranslateX = translate.x;
+            startTranslateY = translate.y;
             document.body.style.userSelect = 'none';
-        }});
-
-        Object.entries(resizers).forEach(function([corner, resizer]) {{
-            resizer.addEventListener('mousedown', function(e) {{
-                e.stopPropagation();
-                isResizing = true;
-                currentResizer = corner;
-                startX = e.clientX;
-                startY = e.clientY;
-                var rect = box.getBoundingClientRect();
-                startLeft = rect.left;
-                startTop = rect.top;
-                startWidth = rect.width;
-                startHeight = rect.height;
-                box.style.transform = 'none';
-                box.style.left = startLeft + 'px';
-                box.style.top = startTop + 'px';
-                box.style.right = 'auto';
-                box.style.bottom = 'auto';
-                document.body.style.userSelect = 'none';
-            }});
+            e.preventDefault();
         }});
 
         document.addEventListener('mousemove', function(e) {{
-            if (isDragging) {{
-                var dx = e.clientX - startX;
-                var dy = e.clientY - startY;
-                box.style.left = (startLeft + dx) + 'px';
-                box.style.top = (startTop + dy) + 'px';
-            }} else if (isResizing) {{
-                var dx = e.clientX - startX;
-                var dy = e.clientY - startY;
-                var newWidth = startWidth;
-                var newHeight = startHeight;
-                var newLeft = startLeft;
-                var newTop = startTop;
-                if (currentResizer.includes('right')) {{
-                    newWidth = startWidth + dx;
-                }}
-                if (currentResizer.includes('left')) {{
-                    newWidth = startWidth - dx;
-                    newLeft = startLeft + dx;
-                }}
-                if (currentResizer.includes('bottom')) {{
-                    newHeight = startHeight + dy;
-                }}
-                if (currentResizer.includes('top')) {{
-                    newHeight = startHeight - dy;
-                    newTop = startTop + dy;
-                }}
-                if (newWidth > 150) {{
-                    box.style.width = newWidth + 'px';
-                    box.style.left = newLeft + 'px';
-                }}
-                if (newHeight > 100) {{
-                    box.style.height = newHeight + 'px';
-                    box.style.top = newTop + 'px';
-                }}
-            }}
+            if (!isDragging) return;
+            var dx = e.clientX - startX;
+            var dy = e.clientY - startY;
+            setTranslate(startTranslateX + dx, startTranslateY + dy);
         }});
 
         document.addEventListener('mouseup', function(e) {{
@@ -155,6 +148,76 @@ def js(message):
                 isDragging = false;
                 document.body.style.userSelect = '';
             }}
+        }});
+
+        copyBtn.addEventListener('click', function(e) {{
+            e.stopPropagation();
+            var textToCopy = decodeURIComponent("{message}");
+            navigator.clipboard.writeText(textToCopy).then(function() {{
+                var originalText = copyBtn.innerText;
+                copyBtn.innerText = '✓ Copied!';
+                setTimeout(function() {{ copyBtn.innerText = originalText; }}, 1500);
+            }}).catch(function(err) {{
+                copyBtn.innerText = '✗ Error';
+                setTimeout(function() {{ copyBtn.innerText = '📋 Copy'; }}, 1500);
+            }});
+        }});
+
+        var isResizing = false;
+        var currentResizer = null;
+        var startWidth, startHeight, newLeft, newTop;
+        var startResizeX, startResizeY, startResizeLeft, startResizeTop;
+
+        Object.entries(resizers).forEach(function([corner, resizer]) {{
+            resizer.addEventListener('mousedown', function(e) {{
+                e.stopPropagation();
+                isResizing = true;
+                currentResizer = corner;
+                startResizeX = e.clientX;
+                startResizeY = e.clientY;
+                var rect = box.getBoundingClientRect();
+                startResizeLeft = rect.left;
+                startResizeTop = rect.top;
+                startWidth = rect.width;
+                startHeight = rect.height;
+                box.style.transform = 'none';
+                box.style.left = startResizeLeft + 'px';
+                box.style.top = startResizeTop + 'px';
+                box.style.right = 'auto';
+                box.style.bottom = 'auto';
+                document.body.style.userSelect = 'none';
+            }});
+        }});
+
+        document.addEventListener('mousemove', function(e) {{
+            if (!isResizing) return;
+            var dx = e.clientX - startResizeX;
+            var dy = e.clientY - startResizeY;
+            var newWidth = startWidth;
+            var newHeight = startHeight;
+            var newLeft = startResizeLeft;
+            var newTop = startResizeTop;
+            if (currentResizer.includes('right')) newWidth = startWidth + dx;
+            if (currentResizer.includes('left')) {{
+                newWidth = startWidth - dx;
+                newLeft = startResizeLeft + dx;
+            }}
+            if (currentResizer.includes('bottom')) newHeight = startHeight + dy;
+            if (currentResizer.includes('top')) {{
+                newHeight = startHeight - dy;
+                newTop = startResizeTop + dy;
+            }}
+            if (newWidth > 150) {{
+                box.style.width = newWidth + 'px';
+                box.style.left = newLeft + 'px';
+            }}
+            if (newHeight > 100) {{
+                box.style.height = newHeight + 'px';
+                box.style.top = newTop + 'px';
+            }}
+        }});
+
+        document.addEventListener('mouseup', function(e) {{
             if (isResizing) {{
                 isResizing = false;
                 currentResizer = null;
