@@ -40,10 +40,9 @@ def js(message, provider):
         {styles_js}
         box.style.width = 'auto';
         box.style.minWidth = '300px';
-        box.style.maxWidth = '600px';
         box.style.height = 'auto';
         box.style.minHeight = '100px';
-        box.style.maxHeight = '240px';
+        box.style.opacity = '0';
 
         var titleBar = document.createElement('div');
         titleBar.style.display = 'flex';
@@ -138,7 +137,9 @@ def js(message, provider):
             box.style.height = targetHeight + 'px';
             contentDiv.style.overflow = oldOverflow;
         }}
-        setTimeout(adjustSize, 0);
+
+        adjustSize();
+        box.style.opacity = '1';
 
         var isDragging = false;
         var startX, startY, startTranslateX, startTranslateY;
