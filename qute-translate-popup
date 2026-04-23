@@ -31,7 +31,12 @@ def js(message, provider):
 
     return f"""
     (function() {{
+        var oldBoxes = document.querySelectorAll('.qute-translate-popup');
+        for (var i = 0; i < oldBoxes.length; i++) {{
+            oldBoxes[i].remove();
+        }}
         var box = document.createElement('div');
+        box.classList.add('qute-translate-popup');
         {styles_js}
         box.style.width = 'auto';
         box.style.minWidth = '300px';
