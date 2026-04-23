@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import json
 import os
 import sys
 import urllib.parse
@@ -9,7 +8,7 @@ import urllib.parse
 import requests
 
 
-def js(message):
+def js(message, provider):
     styles = {
         "position": "fixed",
         "top": "10px",
@@ -53,6 +52,13 @@ def js(message):
         titleText.innerText = '📝 Translation';
         titleText.style.cursor = 'move';
         titleBar.appendChild(titleText);
+
+        var providerSpan = document.createElement('span');
+        providerSpan.innerText = ' [' + decodeURIComponent("{provider}") + ']';
+        providerSpan.style.fontSize = '10px';
+        providerSpan.style.fontWeight = 'normal';
+        providerSpan.style.marginLeft = '8px';
+        titleBar.appendChild(providerSpan);
 
         var copyBtn = document.createElement('button');
         copyBtn.innerText = '📋 Copy';
@@ -236,24 +242,32 @@ def js(message):
     """
 
 
-def translate_google(text, target_lang):
+def translate_google(text, target_lang, timeout=5):
     encoded_text = urllib.parse.quote(text)
-    response = requests.get(
-        f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_lang}&dt=t&q={encoded_text}"
-    )
-    response_json = json.loads(response.text)
-    translated_text = ""
-    for i in response_json[0]:
-        translated_text += i[0]
-    return translated_text
+    url = f"https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl={target_lang}&dt=t&q={encoded_text}"
+    try:
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()
+        response_json = response.json()
+        translated_text = ""
+        for i in response_json[0]:
+            translated_text += i[0]
+        return translated_text
+    except Exception as e:
+        sys.exit(f"Google Translate error: {e}")
 
 
-def translate_libretranslate(text, url, key, target_lang):
-    response = requests.post(
-        f"{url}/translate",
-        data={"q": text, "source": "auto", "target": target_lang, "api_key": key},
-    )
-    return response.json()["translatedText"]
+def translate_libretranslate(text, url, key, target_lang, timeout=5):
+    try:
+        response = requests.post(
+            f"{url}/translate",
+            data={"q": text, "source": "auto", "target": target_lang, "api_key": key},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return response.json()["translatedText"]
+    except Exception as e:
+        sys.exit(f"LibreTranslate error: {e}")
 
 
 def main():
@@ -309,19 +323,21 @@ def main():
             fifo.write(f"open -t {translated_url}\n")
     else:
         text = os.getenv("QUTE_SELECTED_TEXT", "")
-
         if not text or text.isspace():
             sys.exit("No selected text")
 
         if args.provider == "google":
             translated_text = translate_google(text, args.target_lang)
-        elif args.provider == "libretranslate":
+            used_provider = "Google Translate"
+        else:
             translated_text = translate_libretranslate(
                 text, args.libretranslate_url, args.libretranslate_key, args.target_lang
             )
+            used_provider = "LibreTranslate"
 
-        js_code = js(urllib.parse.quote(translated_text)).replace("\n", " ")
-
+        js_code = js(
+            urllib.parse.quote(translated_text), urllib.parse.quote(used_provider)
+        ).replace("\n", " ")
         with open(qute_fifo, "a") as fifo:
             fifo.write(f"jseval -q {js_code}\n")
 
