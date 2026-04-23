@@ -13,8 +13,6 @@ def js(message, provider):
         "position": "fixed",
         "top": "10px",
         "right": "10px",
-        "width": "600px",
-        "height": "240px",
         "backgroundColor": "#FFFFFF",
         "color": "#000000",
         "border": "1px solid #000000",
@@ -35,6 +33,12 @@ def js(message, provider):
     (function() {{
         var box = document.createElement('div');
         {styles_js}
+        box.style.width = 'auto';
+        box.style.minWidth = '300px';
+        box.style.maxWidth = '600px';
+        box.style.height = 'auto';
+        box.style.minHeight = '100px';
+        box.style.maxHeight = '240px';
 
         var titleBar = document.createElement('div');
         titleBar.style.display = 'flex';
@@ -114,6 +118,22 @@ def js(message, provider):
         }});
 
         document.body.appendChild(box);
+
+        function adjustSize() {{
+            var oldOverflow = contentDiv.style.overflow;
+            contentDiv.style.overflow = 'visible';
+            var oldWhiteSpace = textSpan.style.whiteSpace;
+            textSpan.style.whiteSpace = 'nowrap';
+            var textWidth = textSpan.scrollWidth;
+            textSpan.style.whiteSpace = oldWhiteSpace;
+            var targetWidth = Math.min(600, Math.max(300, textWidth + 40));
+            box.style.width = targetWidth + 'px';
+            var fullHeight = box.scrollHeight;
+            var targetHeight = Math.min(240, Math.max(100, fullHeight));
+            box.style.height = targetHeight + 'px';
+            contentDiv.style.overflow = oldOverflow;
+        }}
+        setTimeout(adjustSize, 0);
 
         var isDragging = false;
         var startX, startY, startTranslateX, startTranslateY;
